@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit.NANOSECONDS
 import java.util.zip.{GZIPInputStream, ZipInputStream}
 
 import scala.annotation.tailrec
+
 import scala.collection.JavaConverters._
 import scala.collection.Map
 import scala.collection.mutable.ArrayBuffer
@@ -665,7 +666,7 @@ private[spark] object Utils extends Logging {
       fileOverwrite: Boolean): Unit = {
     val tempFile = File.createTempFile("fetchFileTemp", null,
       new File(destFile.getParentFile.getAbsolutePath))
-    logInfo(s"Fetching $url to $tempFile")
+    logInfo(s"Fetching ${Utils.maskUserInfo(url)} to $tempFile")
 
     try {
       val out = new FileOutputStream(tempFile)
@@ -707,7 +708,7 @@ private[spark] object Utils extends Logging {
       if (!filesEqualRecursive(sourceFile, destFile)) {
         if (fileOverwrite) {
           logInfo(
-            s"File $destFile exists and does not match contents of $url, replacing it with $url"
+            s"File $destFile exists and does not match contents of ${Utils.maskUserInfo(url)}, replacing it with ${Utils.maskUserInfo(url)}"
           )
           if (!destFile.delete()) {
             throw new SparkException(
@@ -738,7 +739,7 @@ private[spark] object Utils extends Logging {
     if (removeSourceFile) {
       Files.move(sourceFile.toPath, destFile.toPath)
     } else {
-      logInfo(s"Copying ${sourceFile.getAbsolutePath} to ${destFile.getAbsolutePath}")
+      logInfo(s"Copying ${Utils.maskUserInfo({sourceFile.getAbsolutePath})} to ${destFile.getAbsolutePath}")
       copyRecursive(sourceFile, destFile)
     }
   }
@@ -3267,6 +3268,18 @@ private[spark] object Utils extends Logging {
       case _ if (len % 2 == 0) =>
         math.max((sortedSize(len / 2) + sortedSize(len / 2 - 1)) / 2, 1)
       case _ => math.max(sortedSize(len / 2), 1)
+    }
+  }
+  
+  /**
+   *Returns the URL string with credentials masked
+   */
+  def maskUserInfo(pathUrl: String): String = {
+    if (pathUrl.matches("^(https|http|ftp)://.*$")) {
+      pathUrl.replaceAll("(?<=//).*(?=@)", "******")
+    }
+    else{
+      pathUrl
     }
   }
 }
